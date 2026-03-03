@@ -13,6 +13,7 @@ export function LoginPage() {
     setError("");
     try {
       const res = await api.post("/auth/login", { email, password });
+      localStorage.setItem("access_token", res.data.access_token);
       localStorage.setItem("token", res.data.access_token);
       nav("/leader");
     } catch (err: any) {

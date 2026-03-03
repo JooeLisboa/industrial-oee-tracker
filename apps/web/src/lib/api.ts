@@ -7,12 +7,20 @@ const api = axios.create({
 
 // Interceptor: adiciona Authorization automaticamente
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const t1 = localStorage.getItem("token");
+  const t2 = localStorage.getItem("access_token");
+  const token = t1 ?? t2;
+
+  // normaliza pra evitar “só pega depois do F5”
+  if (!t1 && t2) localStorage.setItem("token", t2);
+
   if (token) {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+console.log("API.TS CARREGADO");
 
 export default api;
