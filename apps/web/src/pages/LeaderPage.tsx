@@ -1,17 +1,65 @@
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
+import { ApiListResponse, LineOverviewItem } from '../types/api'
+import { useAuth } from '../context/AuthContext'
+import { EmptyState, ErrorState, LoadingState } from '../components/feedback/States'
 
 export function LeaderPage() {
-  const { data, refetch } = useQuery({ queryKey: ['overview'], queryFn: async () => (await api.get('/status/overview')).data, refetchInterval: 4000 })
+  const { token } = useAuth()
+  const overview = useQuery({
+    queryKey: ['overview'],
+    enabled: Boolean(token),
+    refetchInterval: 4000,
+    queryFn: async () => (await api.get<ApiListResponse<LineOverviewItem>>('/status/overview')).data,
+  })
 
-  async function quick(runId: number, action: string) {
-    if (action === 'close') await api.post('/runs/close', { run_id: runId })
-    refetch()
+  if (overview.isLoading) return <LoadingState text="Carregando status das linhas..." />
+  if (overview.isError) {
+    return (
+      <ErrorState
+        text="Não foi possível carregar o painel ao vivo."
+        action={
+          <button type="button" onClick={() => overview.refetch()}>
+            Tentar novamente
+          </button>
+        }
+      />
+    )
+  }
+  if (!overview.data?.items.length) {
+    return (
+      <EmptyState
+        text="Nenhuma linha cadastrada para monitoramento."
+        action={<Link to="/admin" className="text-slate-900 underline">Ir para Admin e cadastrar linha</Link>}
+      />
+    )
   }
 
-  return <div className="space-y-4"><h1 className="text-2xl font-bold">Painel ao vivo do Líder</h1>
-    {data?.lines?.map((l: any) => <div key={l.line.id} className="card"><h2 className="font-semibold">{l.line.name}</h2>
-      <div className="grid grid-cols-3 gap-3">{l.machines.map((m: any) => <div className="border rounded p-3" key={m.machine.id}><p>{m.machine.name}</p><p>Status: {m.state.status}</p>
-        <button onClick={() => quick(m.state.current_run_id, 'close')}>Fechar run</button></div>)}</div></div>)}
-  </div>
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Painel ao vivo do Líder</h1>
+      {overview.data.items.map((line) => (
+        <section key={line.line.id} className="card">
+          <h2 className="font-semibold text-lg">{line.line.name}</h2>
+          {!line.machines.length ? (
+            <EmptyState
+              text="Sem máquinas associadas a esta linha."
+              action={<Link to="/admin" className="text-slate-900 underline">Associar máquinas</Link>}
+            />
+          ) : (
+            <div className="grid md:grid-cols-3 gap-3 mt-3">
+              {line.machines.map((entry) => (
+                <article className="rounded border bg-white p-3" key={entry.machine.id}>
+                  <p className="font-medium">{entry.machine.name}</p>
+                  <p className="text-sm text-slate-600">Status atual: {entry.state.status}</p>
+                  <p className="text-xs text-slate-500 mt-1">Desde: {new Date(entry.state.since_at).toLocaleString()}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      ))}
+    </div>
+  )
 }

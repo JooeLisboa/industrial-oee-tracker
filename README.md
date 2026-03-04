@@ -1,70 +1,118 @@
-# oee-line-monitor (monorepo)
+# oee-line-monitor (industrial-oee-tracker)
 
-Monorepo fullstack para monitoramento OEE industrial com operação por cliques, correções administrativas com auditoria e dashboard em tempo real (polling).
+Sistema full-stack para monitoramento de OEE de linhas e máquinas, com API Flask + Postgres e frontend React/Vite.
 
-## Stack
-- **Backend**: Python 3.12, Flask, SQLAlchemy, Flask-Migrate, JWT, RBAC.
-- **Banco**: PostgreSQL local via docker-compose e compatível com Neon via `DATABASE_URL`.
-- **Frontend**: React + Vite + TypeScript, TailwindCSS, React Router, TanStack Query, Recharts.
+## 1) Stack
+- **Backend**: Flask, SQLAlchemy, Flask-Migrate, JWT, Flask-CORS
+- **Frontend**: React + Vite + TypeScript + Tailwind + TanStack Query + Recharts
+- **Infra**: Docker Compose (dev/prod), Gunicorn (API em produção), Nginx (frontend em produção)
 
-## Estrutura
+## 2) Variáveis de ambiente
+Copie os arquivos de exemplo:
+```bash
+cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
 ```
-apps/
-  api/   # Flask API
-  web/   # React app
+
+Principais variáveis:
+- `DATABASE_URL`: conexão Postgres (Neon compatível)
+- `JWT_SECRET`, `JWT_EXPIRES_HOURS`
+- `CORS_ORIGINS`: lista separada por vírgula
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD`
+- `VITE_API_URL` (frontend)
+
+## 3) Rodar em desenvolvimento com Docker
+```bash
+docker compose up --build
+```
+ou
+```bash
+make dev
 ```
 
-## Rodar local com Docker
-1. Copie envs:
-   - `cp .env.example .env`
-   - `cp apps/api/.env.example apps/api/.env`
-   - `cp apps/web/.env.example apps/web/.env`
-2. Suba tudo:
-   - `make dev` (ou `docker compose up --build`)
-3. URLs:
-   - Web: http://localhost:5173
-   - API: http://localhost:5000
+Serviços:
+- Front: http://localhost:5173
+- API: http://localhost:5000
+- Health API: http://localhost:5000/api/health
 
-## Migrations
-No container da API:
-- `flask db init`
-- `flask db migrate -m "init"`
-- `flask db upgrade`
+## 4) Rodar em desenvolvimento sem Docker
+### Backend
+```bash
+cd apps/api
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+# aplique migração quando existir diretório migrations
+if [ -d migrations ]; then flask db upgrade; fi
+python seed.py
+flask run --host 0.0.0.0 --port 5000
+```
 
-## Seed inicial
-`python seed.py` cria:
-- Turnos padrão (diurno/noturno)
-- Motivos planejados e não planejados (setup/troca/falta material etc)
-- Admin padrão usando `ADMIN_EMAIL`/`ADMIN_PASSWORD`
+### Frontend
+```bash
+cd apps/web
+npm install
+npm run dev
+```
 
-## Neon / produção
-Basta configurar `DATABASE_URL` com string do Neon. Exemplo:
-`postgresql+psycopg://<user>:<pass>@<host>/<db>?sslmode=require`
+## 5) Seed de dados demo (idempotente)
+```bash
+cd apps/api
+python seed.py
+```
+A seed cria e/ou reconcilia:
+- turnos padrão
+- motivos de parada
+- admin default
+- 1 linha + 1 máquina
+- 2 produtos
+- 3–5 runs do mês atual com segmentos/paradas para dashboards e relatórios
 
-## Deploy sugerido
-- **Web**: Vercel apontando para `apps/web`
-- **API**: Render/Fly/Railway apontando para `apps/api`
-- Definir envs: `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `VITE_API_URL`.
+A execução imprime um resumo com `created`, `updated`, `unchanged`. Rodar duas vezes não deve duplicar dados.
 
-## Autenticação e perfis
-- Roles: `ADMIN`, `LEADER`, `VIEWER`.
-- Login retorna JWT em `/api/auth/login`.
+## 6) Produção local (Docker)
+```bash
+docker compose -f docker-compose.prod.yml up --build
+```
+ou
+```bash
+make prod
+```
 
-## Endpoints principais
-- Auth: `/api/auth/login`, `/api/auth/me`
-- Cadastros: `/api/lines`, `/api/machines`, `/api/shifts`, `/api/products`, `/api/downtime-reasons`
-- Plano diário: `/api/daily-plan`, `/api/daily-plan/{id}/status`
-- Operações: `/api/runs/open`, `/api/segments/start`, `/api/segments/switch`, `/api/downtime/start`, `/api/downtime/stop`, `/api/runs/close`
-- Auditoria/correções: `/api/segments/{id}`, `/api/downtime/{id}`, `/api/audit`
-- Status: `/api/status/overview`, `/api/status/machines/{machine_id}`
-- Relatórios: `/api/reports/run/{run_id}/oee`, `/api/reports/machine/{machine_id}`, `/api/reports/monthly`, `/api/reports/yearly`
-- Branding: `/api/public/settings`, `/api/settings`
+- Front servido por Nginx (porta 80)
+- API servida por gunicorn (porta 5000)
+- DB com healthcheck
+- API depende de DB saudável e aplica migrações quando houver `migrations/`
 
-## Testes mínimos
-- API smoke tests com pytest:
-  - login
-  - abrir run + iniciar segmento
-  - iniciar/finalizar parada + validar `machine_state`
+## 7) Qualidade
+### Frontend
+```bash
+cd apps/web
+npm run lint
+npm run format
+npm run build
+```
 
-Rodar:
-`docker compose run --rm api pytest -q`
+### Backend
+```bash
+cd apps/api
+ruff check .
+black --check .
+pytest -q
+```
+
+## 8) CI (GitHub Actions)
+Pipeline em `.github/workflows/ci.yml` roda:
+- **web**: install, lint, build
+- **api**: Postgres service, ruff, black --check, pytest
+
+## 9) Contratos de autenticação e UX
+- Token único no storage: `access_token`
+- Axios injeta `Authorization: Bearer <token>`
+- Tratamento global de `401`: limpa token e redireciona para `/login`
+- Rotas privadas protegidas com `ProtectedRoute`
+- Páginas com fetch possuem estados explícitos: **loading**, **erro** e **empty-state**
+
+## 10) Endpoint de health
+- `GET /api/health` → valida disponibilidade da API

@@ -1,6 +1,7 @@
 from datetime import datetime
+
+from app.models import DowntimeEvent, DowntimeReason, ProductionRun, RunSegment, StopCategory
 from sqlalchemy import func
-from app.models import DowntimeEvent, DowntimeReason, RunSegment, StopCategory, ProductionRun
 
 
 def _duration_seconds(start, end):
@@ -49,17 +50,17 @@ def calculate_oee(run_id: int):
     )
 
     return {
-        'run_id': run_id,
-        'availability': availability,
-        'performance': performance,
-        'quality': quality,
-        'oee': oee,
-        'times': {
-            'shift_duration_sec': shift_duration,
-            'planned_downtime_sec': planned_sec,
-            'unplanned_downtime_sec': unplanned_sec,
-            'nppt_sec': nppt,
-            'operating_time_sec': operating,
+        "run_id": run_id,
+        "availability": availability,
+        "performance": performance,
+        "quality": quality,
+        "oee": oee,
+        "times": {
+            "shift_duration_sec": shift_duration,
+            "planned_downtime_sec": planned_sec,
+            "unplanned_downtime_sec": unplanned_sec,
+            "nppt_sec": nppt,
+            "operating_time_sec": operating,
         },
-        'pareto': [{'reason': p[0], 'count': p[1]} for p in pareto],
+        "pareto": [{"reason": p[0], "count": p[1]} for p in pareto],
     }

@@ -1,35 +1,38 @@
-from datetime import datetime, date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from enum import Enum
-from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import Enum as SAEnum, UniqueConstraint
+
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import UniqueConstraint
+from werkzeug.security import check_password_hash, generate_password_hash
+
 from app import db
 
 
 class Role(str, Enum):
-    ADMIN = 'ADMIN'
-    LEADER = 'LEADER'
-    VIEWER = 'VIEWER'
+    ADMIN = "ADMIN"
+    LEADER = "LEADER"
+    VIEWER = "VIEWER"
 
 
 class StopCategory(str, Enum):
-    PLANNED = 'PLANNED'
-    UNPLANNED = 'UNPLANNED'
+    PLANNED = "PLANNED"
+    UNPLANNED = "UNPLANNED"
 
 
 class MachineStatus(str, Enum):
-    IDLE = 'IDLE'
-    RUNNING = 'RUNNING'
-    MAINTENANCE = 'MAINTENANCE'
-    PLANNED_STOP = 'PLANNED_STOP'
-    UNPLANNED_STOP = 'UNPLANNED_STOP'
-    SETUP = 'SETUP'
+    IDLE = "IDLE"
+    RUNNING = "RUNNING"
+    MAINTENANCE = "MAINTENANCE"
+    PLANNED_STOP = "PLANNED_STOP"
+    UNPLANNED_STOP = "UNPLANNED_STOP"
+    SETUP = "SETUP"
 
 
 class PlanStatus(str, Enum):
-    PENDING = 'PENDING'
-    RUNNING = 'RUNNING'
-    DONE = 'DONE'
-    SKIPPED = 'SKIPPED'
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    DONE = "DONE"
+    SKIPPED = "SKIPPED"
 
 
 class User(db.Model):
@@ -56,7 +59,7 @@ class Line(db.Model):
 
 class Machine(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    line_id = db.Column(db.Integer, db.ForeignKey('line.id'), nullable=False)
+    line_id = db.Column(db.Integer, db.ForeignKey("line.id"), nullable=False)
     name = db.Column(db.String(80), nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
@@ -88,22 +91,22 @@ class ProductionOrder(db.Model):
 class ProductionRun(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     run_date = db.Column(db.Date, nullable=False)
-    shift_id = db.Column(db.Integer, db.ForeignKey('shift.id'), nullable=False)
-    machine_id = db.Column(db.Integer, db.ForeignKey('machine.id'), nullable=False)
-    op_id = db.Column(db.Integer, db.ForeignKey('production_order.id'), nullable=False)
+    shift_id = db.Column(db.Integer, db.ForeignKey("shift.id"), nullable=False)
+    machine_id = db.Column(db.Integer, db.ForeignKey("machine.id"), nullable=False)
+    op_id = db.Column(db.Integer, db.ForeignKey("production_order.id"), nullable=False)
     start_at = db.Column(db.DateTime, nullable=False)
     end_at = db.Column(db.DateTime, nullable=True)
-    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     closed_at = db.Column(db.DateTime, nullable=True)
-    closed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    __table_args__ = (UniqueConstraint('run_date', 'shift_id', 'machine_id', name='uq_run_shift_machine'),)
+    closed_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    __table_args__ = (UniqueConstraint("run_date", "shift_id", "machine_id", name="uq_run_shift_machine"),)
 
 
 class RunSegment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    run_id = db.Column(db.Integer, db.ForeignKey('production_run.id'), nullable=False)
-    plan_item_id = db.Column(db.Integer, db.ForeignKey('daily_plan_item.id'), nullable=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    run_id = db.Column(db.Integer, db.ForeignKey("production_run.id"), nullable=False)
+    plan_item_id = db.Column(db.Integer, db.ForeignKey("daily_plan_item.id"), nullable=True)
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
     start_at = db.Column(db.DateTime, nullable=False)
     end_at = db.Column(db.DateTime, nullable=True)
     rate_plates_per_min_snapshot = db.Column(db.Float, nullable=False)
@@ -123,21 +126,21 @@ class DowntimeReason(db.Model):
 
 class DowntimeEvent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    run_id = db.Column(db.Integer, db.ForeignKey('production_run.id'), nullable=False)
-    reason_id = db.Column(db.Integer, db.ForeignKey('downtime_reason.id'), nullable=False)
+    run_id = db.Column(db.Integer, db.ForeignKey("production_run.id"), nullable=False)
+    reason_id = db.Column(db.Integer, db.ForeignKey("downtime_reason.id"), nullable=False)
     start_at = db.Column(db.DateTime, nullable=False)
     end_at = db.Column(db.DateTime, nullable=True)
-    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     notes = db.Column(db.String(255), nullable=True)
 
 
 class MachineState(db.Model):
-    machine_id = db.Column(db.Integer, db.ForeignKey('machine.id'), primary_key=True)
+    machine_id = db.Column(db.Integer, db.ForeignKey("machine.id"), primary_key=True)
     status = db.Column(SAEnum(MachineStatus), nullable=False, default=MachineStatus.IDLE)
     since_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    current_run_id = db.Column(db.Integer, db.ForeignKey('production_run.id'), nullable=True)
-    current_segment_id = db.Column(db.Integer, db.ForeignKey('run_segment.id'), nullable=True)
-    current_downtime_id = db.Column(db.Integer, db.ForeignKey('downtime_event.id'), nullable=True)
+    current_run_id = db.Column(db.Integer, db.ForeignKey("production_run.id"), nullable=True)
+    current_segment_id = db.Column(db.Integer, db.ForeignKey("run_segment.id"), nullable=True)
+    current_downtime_id = db.Column(db.Integer, db.ForeignKey("downtime_event.id"), nullable=True)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -145,12 +148,12 @@ class DailyPlanItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     plan_date = db.Column(db.Date, nullable=False)
     priority = db.Column(db.Integer, nullable=False, default=1)
-    line_id = db.Column(db.Integer, db.ForeignKey('line.id'), nullable=True)
-    machine_id = db.Column(db.Integer, db.ForeignKey('machine.id'), nullable=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    line_id = db.Column(db.Integer, db.ForeignKey("line.id"), nullable=True)
+    machine_id = db.Column(db.Integer, db.ForeignKey("machine.id"), nullable=True)
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
     planned_qty_plates = db.Column(db.Integer, nullable=False)
     status = db.Column(SAEnum(PlanStatus), nullable=False, default=PlanStatus.PENDING)
-    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 
@@ -162,15 +165,15 @@ class AuditLog(db.Model):
     before_json = db.Column(db.JSON, nullable=True)
     after_json = db.Column(db.JSON, nullable=True)
     reason = db.Column(db.String(255), nullable=True)
-    changed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    changed_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 
 class Setting(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    company_name = db.Column(db.String(120), default='OEE Monitor')
+    company_name = db.Column(db.String(120), default="OEE Monitor")
     logo_url = db.Column(db.String(255), nullable=True)
-    primary_color = db.Column(db.String(30), default='#0f172a')
+    primary_color = db.Column(db.String(30), default="#0f172a")
 
 
 def calc_shift_window(shift: Shift, ref_dt: datetime | None = None):
