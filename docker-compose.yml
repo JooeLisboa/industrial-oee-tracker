@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: oee
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d oee"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: ./apps/api
+    env_file:
+      - .env
+      - ./apps/api/.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@db:5432/oee}
+      FLASK_APP: app
+      FLASK_ENV: development
+    ports:
+      - "${API_PORT:-5000}:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    command: >
+      bash -lc '
+      if [ -d migrations ]; then flask db upgrade; fi &&
+      python seed.py &&
+      flask run --host=0.0.0.0 --port=5000'
+
+  web:
+    build:
+      context: ./apps/web
+      target: development
+    env_file:
+      - ./apps/web/.env
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
